@@ -1,0 +1,101 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Juan E. Martínez Albuixech"
+date: "3 de octubre de 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message = FALSE, cache= TRUE)
+```
+
+## 1. Summary
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it.
+
+In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways
+
+The objective is  select a prediction model for predicting if the lifts are done correctly and incorrectly and use this model for make a prediction about 20 new registers.
+
+##2. Dataset Preparation
+
+In this section we load the needed libraries and datasets, we also split the full training data (training) into a smaller training set (train1) and a validation set (train2)
+library(caret)
+```{r prep}
+library(caret)
+library(rpart)
+library(randomForest)
+library(e1071)
+library(gbm)
+
+set.seed(651121)
+URL1 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+URL2 <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+
+training <- read.csv(url(URL1), na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv(url(URL2), na.strings=c("NA","#DIV/0!",""))
+
+inTraining <- createDataPartition(y=training$classe, p=0.6, list=F)
+train1 <- training[inTraining, ]
+train2 <- training[-inTraining, ]
+```
+
+
+
+Now we ar going to reduce the number of features by removing variables with nearly zero variance, with a big number of NA and the first 5 variables which does not  don't make intuitive sense for prediction. We make this in the training data frame train1 and then do the same in train2
+
+```{r nzv}
+nzv <- nearZeroVar(train1)
+train1 <- train1[, -nzv]
+train2 <- train2[, -nzv]
+
+bigNA <- sapply(train1, function(x) mean(is.na(x))) > 0.60
+train1 <- train1[, bigNA==F]
+train2 <- train2[, bigNA==F]
+
+train1 <- train1[, -(1:5)]
+train2 <- train2[, -(1:5)]
+```
+
+##3. Choosing Model
+
+We propose two different models for the prediction, random forert and decision tree, in this section we decide which one of them fits better in this particlar case.
+
+
+```{r dtree}
+model1 <- rpart(classe ~ ., data=train1, method="class")
+predict1 <- predict(model1, train2, type = "class")
+confusionMatrix(predict1, train2$classe)
+```
+
+```{r rforest}
+model2 <- randomForest(classe ~ ., data=train1)
+predict2 <- predict(model2, train2, type = "class")
+confusionMatrix(predict2, train2$classe)
+```
+
+Clearly (and as expected) random forest model give better results, so we choos this model
+
+## 4. Fitting model to the whole trainig set
+
+In this section we fit a random forest model taking in consideration the whole trainig data set in order to produce better predictions. Therefore, we repeat each stap we did on train1 and train2. We apply this model to the testing set
+
+```{r fit}
+nzv <- nearZeroVar(training)
+training <- training[, -nzv]
+testing <- testing[, -nzv]
+
+bigNA <- sapply(training, function(x) mean(is.na(x))) > 0.60
+training <- training[, bigNA==F]
+testing <- testing[, bigNA==F]
+
+model3 <- randomForest(classe ~ ., data=train1)
+model3
+predict3 <- predict(model3, testing, type = "class")
+```
+
+Finally, we print the results of the prediction
+
+```{r pred}
+predict3
+```
+
